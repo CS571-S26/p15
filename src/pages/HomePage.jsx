@@ -51,7 +51,7 @@ export default function HomePage() {
                 <div className="hero-stat-grid">
                   <div>
                     <span className="eyebrow">Catalog</span>
-                    <strong>{stats.totalFragrances} starter scents</strong>
+                    <strong>{stats.totalFragrances} scents in catalog</strong>
                   </div>
                   <div>
                     <span className="eyebrow">Nearby owners</span>

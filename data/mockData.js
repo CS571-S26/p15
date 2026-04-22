@@ -1,4 +1,4 @@
-export const FRAGRANCES = [
+const CORE_FRAGRANCES = [
   {
     id: 'br540',
     slug: 'baccarat-rouge-540',
@@ -21,7 +21,8 @@ export const FRAGRANCES = [
     blindBuyRisk: 62,
     ownerCount: 7,
     popularity: 98,
-    featuredReason: 'Popular for sampling because it smells different on almost every skin chemistry.',
+    featuredReason:
+      'Popular for sampling because it smells different on almost every skin chemistry.',
   },
   {
     id: 'santal33',
@@ -45,7 +46,8 @@ export const FRAGRANCES = [
     blindBuyRisk: 58,
     ownerCount: 6,
     popularity: 95,
-    featuredReason: 'A perfect test-before-buy scent because people love or dislike its papyrus and pickle-like facets.',
+    featuredReason:
+      'A perfect test-before-buy scent because people love or dislike its papyrus and pickle-like facets.',
   },
   {
     id: 'baldafrique',
@@ -69,7 +71,8 @@ export const FRAGRANCES = [
     blindBuyRisk: 31,
     ownerCount: 4,
     popularity: 84,
-    featuredReason: 'Crowd pleasing and uplifting, but many users still want to see how the vetiver sits on skin.',
+    featuredReason:
+      'Crowd pleasing and uplifting, but many users still want to see how the vetiver sits on skin.',
   },
   {
     id: 'orpheon',
@@ -93,7 +96,8 @@ export const FRAGRANCES = [
     blindBuyRisk: 36,
     ownerCount: 3,
     popularity: 72,
-    featuredReason: 'Often sampled by people deciding between iris-forward comfort scents.',
+    featuredReason:
+      'Often sampled by people deciding between iris-forward comfort scents.',
   },
   {
     id: 'jazzclub',
@@ -117,7 +121,8 @@ export const FRAGRANCES = [
     blindBuyRisk: 29,
     ownerCount: 5,
     popularity: 88,
-    featuredReason: 'A classic cold-weather sample because people want to compare smoke vs sweetness before buying.',
+    featuredReason:
+      'A classic cold-weather sample because people want to compare smoke vs sweetness before buying.',
   },
   {
     id: 'libre',
@@ -141,7 +146,8 @@ export const FRAGRANCES = [
     blindBuyRisk: 24,
     ownerCount: 4,
     popularity: 82,
-    featuredReason: 'A reliable crowd pleaser that users still sample for sweetness and projection checks.',
+    featuredReason:
+      'A reliable crowd pleaser that users still sample for sweetness and projection checks.',
   },
   {
     id: 'delina',
@@ -165,7 +171,8 @@ export const FRAGRANCES = [
     blindBuyRisk: 44,
     ownerCount: 5,
     popularity: 90,
-    featuredReason: 'Widely sampled to judge the tartness of rhubarb and the intensity of the rose.',
+    featuredReason:
+      'Widely sampled to judge the tartness of rhubarb and the intensity of the rose.',
   },
   {
     id: 'oudwood',
@@ -189,7 +196,8 @@ export const FRAGRANCES = [
     blindBuyRisk: 49,
     ownerCount: 4,
     popularity: 87,
-    featuredReason: 'Many shoppers sample it to see whether it reads smooth-luxury or too dry on their skin.',
+    featuredReason:
+      'Many shoppers sample it to see whether it reads smooth-luxury or too dry on their skin.',
   },
   {
     id: 'woodsage',
@@ -213,7 +221,8 @@ export const FRAGRANCES = [
     blindBuyRisk: 18,
     ownerCount: 3,
     popularity: 75,
-    featuredReason: 'Loved as a low-risk sample for people who want a fresh, non-sweet signature scent.',
+    featuredReason:
+      'Loved as a low-risk sample for people who want a fresh, non-sweet signature scent.',
   },
   {
     id: 'angelsshare',
@@ -237,9 +246,322 @@ export const FRAGRANCES = [
     blindBuyRisk: 46,
     ownerCount: 5,
     popularity: 91,
-    featuredReason: 'A must-sample because the sweetness level can feel magical or too rich depending on preference.',
+    featuredReason:
+      'A must-sample because the sweetness level can feel magical or too rich depending on preference.',
   },
 ]
+
+export const CONCENTRATION_OPTIONS = [
+  'Parfum',
+  'Eau de Parfum',
+  'Eau de Toilette',
+  'Extrait de Parfum',
+  'Cologne',
+  'Elixir',
+]
+
+export const FAMILY_OPTIONS = [
+  'Woody Aromatic',
+  'Amber Floral',
+  'Woody Floral Musk',
+  'Amber Woody',
+  'Floral',
+  'Aromatic Aquatic',
+  'Citrus Aromatic',
+  'Leather',
+  'Amber Vanilla',
+  'Fresh Spicy',
+  'Chypre Floral',
+  'Green Floral',
+]
+
+export const SEASON_OPTIONS = ['spring', 'summer', 'fall', 'winter']
+
+export const SILLAGE_OPTIONS = ['soft', 'moderate', 'moderate to strong', 'strong']
+
+const BRAND_POOL = [
+  'Maison Valeur',
+  'Atelier Nocturne',
+  'Velours Studio',
+  'Maison Céleste',
+  'Arbor & Ash',
+  'Néroli Archive',
+  'Lune Atelier',
+  'Amber Bureau',
+  'Studio Vetiver',
+  'Cedar House',
+  'Maison Solstice',
+  'Obsidian Bloom',
+  'Muse Parfums',
+  'Oro Scent Lab',
+  'Rive Blanche',
+  'Fable Olfactive',
+  'Atlas Perfumery',
+  'Santal Société',
+  'Verre Noir',
+  'Maison Horizon',
+  'Lustre & Smoke',
+  'Opaline Works',
+  'Halcyon Parfums',
+  'Maison Dusk',
+  'Blue Room Perfumes',
+]
+
+const ADJECTIVE_POOL = [
+  'Velvet',
+  'Solar',
+  'Midnight',
+  'Crystal',
+  'Golden',
+  'Ivory',
+  'Smoked',
+  'Silent',
+  'Burnished',
+  'Electric',
+  'Soft',
+  'Wild',
+  'Luminous',
+  'Shadow',
+  'Amber',
+  'Scarlet',
+  'Silver',
+  'Dark',
+  'Misted',
+  'Radiant',
+  'Bare',
+  'Moonlit',
+  'Satin',
+  'Cinder',
+  'Blooming',
+  'Noble',
+  'Salted',
+  'Prismatic',
+]
+
+const NOUN_POOL = [
+  'Cedar',
+  'Neroli',
+  'Velvet',
+  'Fig',
+  'Musk',
+  'Rose',
+  'Tea',
+  'Leather',
+  'Iris',
+  'Oud',
+  'Jasmine',
+  'Cypress',
+  'Amber',
+  'Garden',
+  'Sky',
+  'Suede',
+  'Pearl',
+  'Forest',
+  'Smoke',
+  'Salt',
+  'Petal',
+  'Saffron',
+  'Juniper',
+  'Drift',
+  'Vanilla',
+  'Bloom',
+  'Sand',
+  'Canyon',
+]
+
+const TOP_NOTES = [
+  'bergamot',
+  'grapefruit',
+  'mandarin',
+  'pink pepper',
+  'cardamom',
+  'juniper berries',
+  'pear',
+  'lemon zest',
+  'blackcurrant',
+  'saffron',
+  'apple',
+  'neroli',
+  'violet leaf',
+  'aldehydes',
+  'lychee',
+  'fig leaf',
+]
+
+const MIDDLE_NOTES = [
+  'jasmine',
+  'iris',
+  'orange blossom',
+  'rose',
+  'lavender',
+  'cyclamen',
+  'peony',
+  'tea accord',
+  'sage',
+  'tuberose',
+  'violet',
+  'marigold',
+  'cashmeran',
+  'cinnamon',
+  'clary sage',
+  'magnolia',
+]
+
+const BASE_NOTES = [
+  'musk',
+  'cedar',
+  'sandalwood',
+  'vetiver',
+  'ambergris',
+  'vanilla',
+  'tonka bean',
+  'oakmoss',
+  'patchouli',
+  'leather',
+  'fir resin',
+  'benzoin',
+  'labdanum',
+  'ambroxan',
+  'oud',
+  'styrax',
+]
+
+const ACCORD_POOL = [
+  'woody',
+  'fresh',
+  'musky',
+  'ambery',
+  'floral',
+  'citrus',
+  'powdery',
+  'green',
+  'sweet',
+  'spicy',
+  'marine',
+  'smoky',
+  'leathery',
+  'vanilla',
+  'resinous',
+]
+
+const IDEAL_FOR_POOL = [
+  'everyday',
+  'office',
+  'date nights',
+  'warm weather',
+  'cold weather',
+  'travel',
+  'weekends',
+  'creative work',
+  'evening',
+  'special occasions',
+  'layering',
+  'sampling',
+]
+
+function slugify(value) {
+  return value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function pick(list, seed) {
+  return list[seed % list.length]
+}
+
+function pickMany(list, seed, count) {
+  const picked = []
+  let cursor = seed
+
+  while (picked.length < count) {
+    const value = list[cursor % list.length]
+    if (!picked.includes(value)) {
+      picked.push(value)
+    }
+    cursor += 7
+  }
+
+  return picked
+}
+
+function buildDescription(name, brand, topNotes, middleNotes, baseNotes) {
+  return `${name} by ${brand} opens with ${topNotes[0]} and ${topNotes[1]}, moves through ${middleNotes[0]} and ${middleNotes[1]}, then settles into ${baseNotes[0]} and ${baseNotes[1]} for a polished, sample-worthy dry down.`
+}
+
+function buildFeaturedReason(topNotes, accords) {
+  return `Popular for sampling because people want to test the ${topNotes[0]} opening against the ${accords[0]} dry down before committing to a bottle.`
+}
+
+function buildGeneratedFragrance(index) {
+  const brand = pick(BRAND_POOL, index * 3)
+  const adjective = pick(ADJECTIVE_POOL, index * 5)
+  const noun = pick(NOUN_POOL, index * 7)
+  const family = pick(FAMILY_OPTIONS, index * 11)
+  const concentration = pick(CONCENTRATION_OPTIONS, index * 13)
+
+  const topNotes = pickMany(TOP_NOTES, index * 17, 3)
+  const middleNotes = pickMany(MIDDLE_NOTES, index * 19, 3)
+  const baseNotes = pickMany(BASE_NOTES, index * 23, 3)
+  const accords = pickMany(ACCORD_POOL, index * 29, 4)
+  const seasons = pickMany(SEASON_OPTIONS, index * 31, 2)
+  const idealFor = pickMany(IDEAL_FOR_POOL, index * 37, 3)
+  const sillage = pick(SILLAGE_OPTIONS, index * 41)
+
+  const name = `${adjective} ${noun}`
+  const slugBase = slugify(`${brand}-${name}`)
+
+  return {
+    id: `gen-${slugBase}-${index}`,
+    slug: `${slugBase}-${index}`,
+    brand,
+    name,
+    concentration,
+    family,
+    vibe: `${topNotes[0]}, ${middleNotes[0]}, ${baseNotes[0]}`,
+    description: buildDescription(name, brand, topNotes, middleNotes, baseNotes),
+    topNotes,
+    middleNotes,
+    baseNotes,
+    accords,
+    seasons,
+    longevity: `${4 + (index % 7)}–${7 + (index % 5)} hours`,
+    sillage,
+    idealFor,
+    communityScore: 70 + (index % 27),
+    blindBuyRisk: 12 + ((index * 9) % 58),
+    ownerCount: 0,
+    popularity: 28 + ((index * 11) % 68),
+    featuredReason: buildFeaturedReason(topNotes, accords),
+  }
+}
+
+function buildCatalog(seedFragrances, targetCount = 500) {
+  const catalog = [...seedFragrances]
+  const takenIds = new Set(seedFragrances.map((fragrance) => fragrance.id))
+  const takenSlugs = new Set(seedFragrances.map((fragrance) => fragrance.slug))
+
+  let index = 1
+
+  while (catalog.length < targetCount) {
+    const next = buildGeneratedFragrance(index)
+
+    if (!takenIds.has(next.id) && !takenSlugs.has(next.slug)) {
+      catalog.push(next)
+      takenIds.add(next.id)
+      takenSlugs.add(next.slug)
+    }
+
+    index += 1
+  }
+
+  return catalog
+}
+
+export const FRAGRANCES = buildCatalog(CORE_FRAGRANCES, 500)
 
 export const DEMO_USER = {
   id: 'you',
@@ -459,7 +781,8 @@ export const INITIAL_REQUESTS = [
     requesterId: 'you',
     status: 'Pending',
     createdAt: '2 hours ago',
-    message: 'I want to compare this on skin before committing to a bottle. Could we meet this week?',
+    message:
+      'I want to compare this on skin before committing to a bottle. Could we meet this week?',
   },
   {
     id: 'req-2',
@@ -468,7 +791,8 @@ export const INITIAL_REQUESTS = [
     requesterId: 'jordan',
     status: 'Pending',
     createdAt: 'Yesterday',
-    message: 'Would love to try this after class and compare it with my tobacco scents.',
+    message:
+      'Would love to try this after class and compare it with my tobacco scents.',
   },
   {
     id: 'req-3',
@@ -477,7 +801,8 @@ export const INITIAL_REQUESTS = [
     requesterId: 'you',
     status: 'Approved',
     createdAt: '3 days ago',
-    message: 'The powdery juniper profile sounds perfect for spring. Any chance to sample this weekend?',
+    message:
+      'The powdery juniper profile sounds perfect for spring. Any chance to sample this weekend?',
   },
 ]
 

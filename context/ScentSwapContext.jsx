@@ -6,7 +6,7 @@ import {
   INITIAL_REQUESTS,
 } from '../data/mockData'
 
-const STORAGE_KEY = 'scentswap-demo-state-v2'
+const STORAGE_KEY = 'scentswap-demo-state-v3'
 
 const ScentSwapContext = createContext(null)
 
@@ -15,6 +15,7 @@ function buildInitialState() {
     currentUser: DEMO_USER,
     requests: INITIAL_REQUESTS,
     supportTickets: [],
+    customFragrances: [],
   }
 }
 
@@ -34,6 +35,7 @@ function loadState() {
     return {
       ...buildInitialState(),
       ...parsed,
+      customFragrances: parsed.customFragrances ?? [],
     }
   } catch {
     return buildInitialState()
@@ -42,6 +44,72 @@ function loadState() {
 
 function randomId(prefix) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
+}
+
+function slugify(value) {
+  return value
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^\w\s-]/g, '')
+    .trim()
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+function uniqueValue(base, taken) {
+  let candidate = base
+  let index = 2
+
+  while (taken.has(candidate)) {
+    candidate = `${base}-${index}`
+    index += 1
+  }
+
+  return candidate
+}
+
+function parseList(value, fallback = []) {
+  if (Array.isArray(value)) {
+    const cleaned = value
+      .map((item) => String(item).trim().toLowerCase())
+      .filter(Boolean)
+
+    return cleaned.length ? [...new Set(cleaned)] : fallback
+  }
+
+  const cleaned = String(value ?? '')
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean)
+
+  return cleaned.length ? [...new Set(cleaned)] : fallback
+}
+
+function buildCollectionEntry(fragranceId) {
+  return {
+    fragranceId,
+    bottleMl: 50,
+    condition: '95% full',
+    sampleFormat: '2 ml atomizer',
+    shareEnabled: true,
+  }
+}
+
+function addCollectionEntryIfMissing(user, fragranceId) {
+  if (user.collection.some((item) => item.fragranceId === fragranceId)) {
+    return {
+      user,
+      added: false,
+    }
+  }
+
+  return {
+    user: {
+      ...user,
+      collection: [...user.collection, buildCollectionEntry(fragranceId)],
+    },
+    added: true,
+  }
 }
 
 export function ScentSwapProvider({ children }) {
@@ -67,18 +135,57 @@ export function ScentSwapProvider({ children }) {
   const currentUser = state.currentUser
   const requests = state.requests
   const supportTickets = state.supportTickets
+  const customFragrances = state.customFragrances ?? []
 
   const allUsers = useMemo(() => {
     if (!currentUser) {
       return COMMUNITY_MEMBERS
     }
 
-    return [currentUser, ...COMMUNITY_MEMBERS]
+    return [
+      currentUser,
+      ...COMMUNITY_MEMBERS.filter((member) => member.id !== currentUser.id),
+    ]
   }, [currentUser])
 
+  const ownerCounts = useMemo(() => {
+    const counts = {}
+
+    for (const user of allUsers) {
+      for (const item of user.collection ?? []) {
+        if (!item.shareEnabled) {
+          continue
+        }
+
+        counts[item.fragranceId] = (counts[item.fragranceId] ?? 0) + 1
+      }
+    }
+
+    return counts
+  }, [allUsers])
+
+  const fragrances = useMemo(() => {
+    const merged = [...customFragrances, ...FRAGRANCES]
+    const seen = new Set()
+
+    return merged
+      .filter((fragrance) => {
+        if (seen.has(fragrance.id)) {
+          return false
+        }
+
+        seen.add(fragrance.id)
+        return true
+      })
+      .map((fragrance) => ({
+        ...fragrance,
+        ownerCount: ownerCounts[fragrance.id] ?? 0,
+      }))
+  }, [customFragrances, ownerCounts])
+
   const fragranceMap = useMemo(() => {
-    return Object.fromEntries(FRAGRANCES.map((fragrance) => [fragrance.id, fragrance]))
-  }, [])
+    return Object.fromEntries(fragrances.map((fragrance) => [fragrance.id, fragrance]))
+  }, [fragrances])
 
   const collectionIds = currentUser?.collection.map((item) => item.fragranceId) ?? []
   const favoriteIds = currentUser?.favorites ?? []
@@ -200,25 +307,15 @@ export function ScentSwapProvider({ children }) {
     }
 
     updateCurrentUser((user) => {
-      if (user.collection.some((item) => item.fragranceId === fragranceId)) {
+      const result = addCollectionEntryIfMissing(user, fragranceId)
+
+      if (!result.added) {
         pushToast('Already in collection', 'That fragrance is already listed in your collection.')
         return user
       }
 
       pushToast('Collection updated', 'The fragrance was added to your collection.')
-      return {
-        ...user,
-        collection: [
-          ...user.collection,
-          {
-            fragranceId,
-            bottleMl: 50,
-            condition: '95% full',
-            sampleFormat: '2 ml atomizer',
-            shareEnabled: true,
-          },
-        ],
-      }
+      return result.user
     })
   }
 
@@ -248,6 +345,127 @@ export function ScentSwapProvider({ children }) {
       )),
     }))
     pushToast('Sampling settings updated', 'Your collection visibility has been updated.')
+  }
+
+  const createFragrance = (payload) => {
+    if (!ensureSignedIn()) {
+      return { status: 'blocked' }
+    }
+
+    const brand = String(payload.brand ?? '').trim()
+    const name = String(payload.name ?? '').trim()
+
+    if (!brand || !name) {
+      pushToast('Missing fields', 'Brand and fragrance name are required.')
+      return { status: 'invalid' }
+    }
+
+    const duplicate = fragrances.find((fragrance) => (
+      fragrance.brand.trim().toLowerCase() === brand.toLowerCase()
+      && fragrance.name.trim().toLowerCase() === name.toLowerCase()
+    ))
+
+    if (duplicate) {
+      let addedToCollection = false
+
+      if (payload.addToCollection) {
+        updateCurrentUser((user) => {
+          const result = addCollectionEntryIfMissing(user, duplicate.id)
+          addedToCollection = result.added
+          return result.user
+        })
+      }
+
+      pushToast(
+        'Already in catalog',
+        addedToCollection
+          ? 'We found an existing match and added it to your collection.'
+          : 'We found an existing match for that fragrance.',
+      )
+
+      return {
+        status: 'duplicate',
+        fragrance: duplicate,
+      }
+    }
+
+    const takenIds = new Set(fragrances.map((fragrance) => fragrance.id))
+    const takenSlugs = new Set(fragrances.map((fragrance) => fragrance.slug))
+
+    const idBase = `custom-${slugify(`${brand}-${name}`)}`
+    const slugBase = slugify(`${brand}-${name}`)
+
+    const id = uniqueValue(idBase, takenIds)
+    const slug = uniqueValue(slugBase, takenSlugs)
+
+    const topNotes = parseList(payload.topNotes, ['bergamot'])
+    const middleNotes = parseList(payload.middleNotes, ['jasmine'])
+    const baseNotes = parseList(payload.baseNotes, ['musk'])
+
+    const accords = parseList(payload.accords, [
+      familyFallback(payload.family),
+      topNotes[0],
+      baseNotes[0],
+    ].filter(Boolean).slice(0, 4))
+
+    const seasons = parseList(payload.seasons, ['spring', 'fall'])
+    const idealFor = parseList(payload.idealFor, ['sampling', 'everyday'])
+
+    const fragrance = {
+      id,
+      slug,
+      brand,
+      name,
+      concentration: String(payload.concentration || 'Eau de Parfum').trim(),
+      family: String(payload.family || 'Woody Aromatic').trim(),
+      vibe: String(payload.vibe || `${topNotes[0]}, ${middleNotes[0]}, ${baseNotes[0]}`).trim(),
+      description: String(
+        payload.description
+        || `${name} by ${brand} blends ${topNotes[0]}, ${middleNotes[0]}, and ${baseNotes[0]} into a balanced profile built for testing before a full bottle purchase.`,
+      ).trim(),
+      topNotes,
+      middleNotes,
+      baseNotes,
+      accords,
+      seasons,
+      longevity: String(payload.longevity || '6–8 hours').trim(),
+      sillage: String(payload.sillage || 'moderate').trim().toLowerCase(),
+      idealFor,
+      communityScore: Number(payload.communityScore ?? 76),
+      blindBuyRisk: Number(payload.blindBuyRisk ?? 32),
+      ownerCount: 0,
+      popularity: Number(payload.popularity ?? 12),
+      featuredReason: 'Community-added fragrance created because it was missing from the catalog.',
+      createdBy: currentUser.id,
+      createdAt: new Date().toISOString(),
+    }
+
+    setState((current) => ({
+      ...current,
+      customFragrances: [fragrance, ...(current.customFragrances ?? [])],
+    }))
+
+    let addedToCollection = false
+
+    if (payload.addToCollection) {
+      updateCurrentUser((user) => {
+        const result = addCollectionEntryIfMissing(user, fragrance.id)
+        addedToCollection = result.added
+        return result.user
+      })
+    }
+
+    pushToast(
+      'Fragrance created',
+      addedToCollection
+        ? 'Added to the catalog and your collection.'
+        : 'Added to the catalog.',
+    )
+
+    return {
+      status: 'created',
+      fragrance,
+    }
   }
 
   const sendSampleRequest = ({ fragranceId, ownerId, message }) => {
@@ -333,14 +551,14 @@ export function ScentSwapProvider({ children }) {
   }
 
   const getOwnersForFragrance = (fragranceId) => {
-    return COMMUNITY_MEMBERS
-      .filter((member) => member.collection.some(
+    return allUsers
+      .filter((user) => user.collection.some(
         (item) => item.fragranceId === fragranceId && item.shareEnabled,
       ))
-      .map((member) => {
-        const ownedItem = member.collection.find((item) => item.fragranceId === fragranceId)
+      .map((user) => {
+        const ownedItem = user.collection.find((item) => item.fragranceId === fragranceId)
         return {
-          ...member,
+          ...user,
           ownedItem,
         }
       })
@@ -358,17 +576,20 @@ export function ScentSwapProvider({ children }) {
     ? requests.filter((request) => request.requesterId === currentUser.id)
     : []
 
-  const collection = currentUser?.collection.map(enrichCollectionItem) ?? []
+  const collection = currentUser?.collection
+    .map(enrichCollectionItem)
+    .filter((item) => item.fragrance) ?? []
 
   const stats = {
-    totalFragrances: FRAGRANCES.length,
+    totalFragrances: fragrances.length,
     communityMembers: COMMUNITY_MEMBERS.length + (currentUser ? 1 : 0),
     activeSamples: requests.filter((request) => request.status === 'Pending').length,
-    localOwners: COMMUNITY_MEMBERS.filter((member) => member.distance <= 10).length,
+    localOwners: allUsers.filter((user) => user.distance <= 10).length,
   }
 
   const value = {
-    fragrances: FRAGRANCES,
+    fragrances,
+    customFragrances,
     currentUser,
     collection,
     collectionIds,
@@ -388,6 +609,7 @@ export function ScentSwapProvider({ children }) {
     addToCollection,
     removeFromCollection,
     toggleCollectionSharing,
+    createFragrance,
     sendSampleRequest,
     updateRequestStatus,
     submitSupportTicket,
@@ -404,6 +626,14 @@ export function ScentSwapProvider({ children }) {
       {children}
     </ScentSwapContext.Provider>
   )
+}
+
+function familyFallback(family) {
+  if (!family) {
+    return 'woody'
+  }
+
+  return String(family).trim().split(' ')[0].toLowerCase()
 }
 
 export function useScentSwap() {

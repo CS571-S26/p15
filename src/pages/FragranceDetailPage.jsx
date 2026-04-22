@@ -10,12 +10,22 @@ import {
   Row,
   Stack,
 } from 'react-bootstrap'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import NotePyramid from '../components/NotePyramid'
 import RequestSampleModal from '../components/RequestSampleModal'
+import CreateFragranceModal from '../components/CreateFragranceModal'
 import { useScentSwap } from '../../context/ScentSwapContext'
 
+function humanizeSlug(slug = '') {
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part[0]?.toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
 export default function FragranceDetailPage() {
+  const navigate = useNavigate()
   const {
     fragrances,
     collectionIds,
@@ -24,8 +34,10 @@ export default function FragranceDetailPage() {
     addToCollection,
     getOwnersForFragrance,
   } = useScentSwap()
+
   const { slug } = useParams()
   const [selectedOwner, setSelectedOwner] = useState(null)
+  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const fragrance = fragrances.find((item) => item.slug === slug)
 
@@ -40,13 +52,26 @@ export default function FragranceDetailPage() {
   if (!fragrance) {
     return (
       <Container fluid="lg" className="py-5 text-center">
+        <p className="eyebrow mb-2">Catalog gap</p>
         <h1 className="mb-3">Fragrance not found</h1>
         <p className="text-secondary mb-4">
-          The fragrance you requested does not exist in this starter catalog yet.
+          That scent is not in the catalog yet. You can go back to Explore or create it now.
         </p>
-        <Button as={Link} to="/explore" variant="dark">
-          Return to explore
-        </Button>
+        <div className="d-flex justify-content-center gap-2 flex-wrap">
+          <Button as={Link} to="/explore" variant="outline-secondary">
+            Return to explore
+          </Button>
+          <Button variant="dark" onClick={() => setShowCreateModal(true)}>
+            Create this fragrance
+          </Button>
+        </div>
+
+        <CreateFragranceModal
+          show={showCreateModal}
+          onHide={() => setShowCreateModal(false)}
+          initialQuery={humanizeSlug(slug)}
+          onCreated={(createdFragrance) => navigate(`/fragrances/${createdFragrance.slug}`)}
+        />
       </Container>
     )
   }
