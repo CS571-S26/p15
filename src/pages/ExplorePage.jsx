@@ -49,7 +49,6 @@ export default function ExplorePage() {
 
   useEffect(() => {
     const query = searchParams.get('q') ?? ''
-
     setFilters((current) => (
       current.search === query
         ? current
@@ -172,9 +171,7 @@ export default function ExplorePage() {
           {index}
         </Pagination.Item>,
       )
-    } else if (
-      pageItems[pageItems.length - 1]?.type !== Pagination.Ellipsis
-    ) {
+    } else if (pageItems[pageItems.length - 1]?.type !== Pagination.Ellipsis) {
       pageItems.push(<Pagination.Ellipsis key={`ellipsis-${index}`} disabled />)
     }
   }
@@ -185,8 +182,8 @@ export default function ExplorePage() {
         <p className="eyebrow mb-2">Fragrance catalog</p>
         <h1 className="mb-3">Search by notes, family, season, or nearby availability</h1>
         <p className="text-secondary mb-0">
-          This catalog now scales much better: browse a large set, filter it down, and add a missing
-          fragrance directly from the same screen.
+          This catalog is now backed by the database, so new fragrances, user collections, and
+          community ownership are real records rather than demo-only state.
         </p>
       </div>
 
@@ -275,7 +272,7 @@ export default function ExplorePage() {
               <div className="mt-4 pt-3 border-top border-secondary-subtle">
                 <p className="eyebrow mb-2">Missing something?</p>
                 <p className="text-secondary small mb-3">
-                  Add a fragrance that is not in the catalog yet.
+                  Add a fragrance to the shared catalog.
                 </p>
                 <Button
                   variant="dark"

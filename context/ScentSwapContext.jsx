@@ -1,50 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
-import {
-  COMMUNITY_MEMBERS,
-  DEMO_USER,
-  FRAGRANCES,
-  INITIAL_REQUESTS,
-} from '../data/mockData'
-
-const STORAGE_KEY = 'scentswap-demo-state-v3'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { supabase } from '../src/lib/supabase'
 
 const ScentSwapContext = createContext(null)
-
-function buildInitialState() {
-  return {
-    currentUser: DEMO_USER,
-    requests: INITIAL_REQUESTS,
-    supportTickets: [],
-    customFragrances: [],
-  }
-}
-
-function loadState() {
-  if (typeof window === 'undefined') {
-    return buildInitialState()
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) {
-      return buildInitialState()
-    }
-
-    const parsed = JSON.parse(raw)
-
-    return {
-      ...buildInitialState(),
-      ...parsed,
-      customFragrances: parsed.customFragrances ?? [],
-    }
-  } catch {
-    return buildInitialState()
-  }
-}
-
-function randomId(prefix) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 10)}`
-}
 
 function slugify(value) {
   return value
@@ -56,24 +13,9 @@ function slugify(value) {
     .replace(/^-+|-+$/g, '')
 }
 
-function uniqueValue(base, taken) {
-  let candidate = base
-  let index = 2
-
-  while (taken.has(candidate)) {
-    candidate = `${base}-${index}`
-    index += 1
-  }
-
-  return candidate
-}
-
 function parseList(value, fallback = []) {
   if (Array.isArray(value)) {
-    const cleaned = value
-      .map((item) => String(item).trim().toLowerCase())
-      .filter(Boolean)
-
+    const cleaned = value.map((item) => String(item).trim().toLowerCase()).filter(Boolean)
     return cleaned.length ? [...new Set(cleaned)] : fallback
   }
 
@@ -85,269 +27,607 @@ function parseList(value, fallback = []) {
   return cleaned.length ? [...new Set(cleaned)] : fallback
 }
 
-function buildCollectionEntry(fragranceId) {
-  return {
-    fragranceId,
-    bottleMl: 50,
-    condition: '95% full',
-    sampleFormat: '2 ml atomizer',
-    shareEnabled: true,
+function formatDateTime(value) {
+  if (!value) {
+    return ''
+  }
+
+  try {
+    return new Date(value).toLocaleString()
+  } catch {
+    return value
   }
 }
 
-function addCollectionEntryIfMissing(user, fragranceId) {
-  if (user.collection.some((item) => item.fragranceId === fragranceId)) {
-    return {
-      user,
-      added: false,
-    }
+function mapProfileRow(row, email = null) {
+  if (!row) {
+    return null
   }
 
   return {
-    user: {
-      ...user,
-      collection: [...user.collection, buildCollectionEntry(fragranceId)],
-    },
-    added: true,
+    id: row.id,
+    name: row.display_name || email?.split('@')[0] || 'Collector',
+    email,
+    city: row.city || 'Unknown',
+    distance: Number(row.distance_miles ?? 0),
+    verified: Boolean(row.verified),
+    rating: Number(row.rating ?? 0),
+    responseTime: row.response_time || '~1 day',
+    bio: row.bio || '',
+    meetupSpot: row.meetup_spot || 'TBD',
+    createdAt: row.created_at,
   }
+}
+
+function mapFragranceRow(row) {
+  return {
+    id: row.id,
+    slug: row.slug,
+    brand: row.brand,
+    name: row.name,
+    concentration: row.concentration,
+    family: row.family,
+    vibe: row.vibe,
+    description: row.description,
+    topNotes: row.top_notes ?? [],
+    middleNotes: row.middle_notes ?? [],
+    baseNotes: row.base_notes ?? [],
+    accords: row.accords ?? [],
+    seasons: row.seasons ?? [],
+    longevity: row.longevity,
+    sillage: row.sillage,
+    idealFor: row.ideal_for ?? [],
+    communityScore: row.community_score,
+    blindBuyRisk: row.blind_buy_risk,
+    popularity: row.popularity,
+    featuredReason: row.featured_reason ?? '',
+    ownerCount: 0,
+    createdBy: row.created_by,
+    createdAt: row.created_at,
+  }
+}
+
+function mapCollectionRow(row) {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    fragranceId: row.fragrance_id,
+    bottleMl: row.bottle_ml,
+    condition: row.condition,
+    sampleFormat: row.sample_format,
+    shareEnabled: row.share_enabled,
+    createdAt: row.created_at,
+  }
+}
+
+function mapRequestRow(row) {
+  return {
+    id: row.id,
+    fragranceId: row.fragrance_id,
+    ownerId: row.owner_user_id,
+    requesterId: row.requester_user_id,
+    status: row.status,
+    createdAt: formatDateTime(row.created_at),
+    message: row.message,
+  }
+}
+
+function uniqueSlug(base, taken) {
+  let candidate = base
+  let index = 2
+
+  while (taken.has(candidate)) {
+    candidate = `${base}-${index}`
+    index += 1
+  }
+
+  return candidate
 }
 
 export function ScentSwapProvider({ children }) {
-  const [state, setState] = useState(loadState)
+  const [session, setSession] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [profiles, setProfiles] = useState([])
+  const [fragrances, setFragrances] = useState([])
+  const [publicCollectionItems, setPublicCollectionItems] = useState([])
+  const [ownCollectionItems, setOwnCollectionItems] = useState([])
+  const [favoriteRows, setFavoriteRows] = useState([])
+  const [requests, setRequests] = useState([])
+  const [supportTickets, setSupportTickets] = useState([])
   const [authModalOpen, setAuthModalOpen] = useState(false)
   const [toasts, setToasts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const refreshRunRef = useRef(0)
+  const lastErrorSignatureRef = useRef('')
+
+  const pushToast = useCallback((title, body) => {
+    const id = crypto.randomUUID()
+    setToasts((current) => [...current, { id, title, body }])
+  }, [])
+
+  const dismissToast = useCallback((id) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id))
+  }, [])
+
+  const ensureProfile = useCallback(async (authUser) => {
+    if (!authUser) {
+      return null
+    }
+
+    const payload = {
+      id: authUser.id,
+      display_name: authUser.user_metadata?.display_name || authUser.email?.split('@')[0] || 'Collector',
+      city: authUser.user_metadata?.city || null,
+      distance_miles: Number(authUser.user_metadata?.distance_miles ?? 0),
+      bio: authUser.user_metadata?.bio || '',
+      meetup_spot: authUser.user_metadata?.meetup_spot || 'TBD',
+      response_time: '~1 day',
+    }
+
+    const { error } = await supabase
+      .from('profiles')
+      .upsert(payload, { onConflict: 'id' })
+
+    if (error) {
+      console.error(error)
+    }
+  }, [])
+
+  const refreshAll = useCallback(async (nextSession = null) => {
+    const runId = ++refreshRunRef.current
+    setLoading(true)
+
+    const {
+      data: { session: liveSession },
+    } = await supabase.auth.getSession()
+
+    const activeSession = nextSession ?? liveSession ?? null
+    const authUser = activeSession?.user ?? null
+    const userId = authUser?.id ?? null
+
+    if (authUser) {
+      await ensureProfile(authUser)
+    }
+
+    const [
+      profilesRes,
+      fragrancesRes,
+      publicCollectionRes,
+      ownCollectionRes,
+      favoritesRes,
+      requestsRes,
+      ticketsRes,
+    ] = await Promise.all([
+      supabase.from('profiles').select('*').order('display_name'),
+      supabase.from('fragrances').select('*').order('popularity', { ascending: false }),
+      supabase.from('collection_items').select('*').eq('share_enabled', true),
+      userId
+        ? supabase.from('collection_items').select('*').eq('user_id', userId)
+        : Promise.resolve({ data: [], error: null }),
+      userId
+        ? supabase.from('favorites').select('*').eq('user_id', userId)
+        : Promise.resolve({ data: [], error: null }),
+      userId
+        ? supabase
+            .from('sample_requests')
+            .select('*')
+            .or(`owner_user_id.eq.${userId},requester_user_id.eq.${userId}`)
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+      userId
+        ? supabase
+            .from('support_tickets')
+            .select('*')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
+    ])
+
+    const queryErrors = [
+      ['profiles', profilesRes.error],
+      ['fragrances', fragrancesRes.error],
+      ['publicCollection', publicCollectionRes.error],
+      ['ownCollection', ownCollectionRes.error],
+      ['favorites', favoritesRes.error],
+      ['requests', requestsRes.error],
+      ['tickets', ticketsRes.error],
+    ].filter(([, error]) => error)
+
+    if (queryErrors.length > 0) {
+      console.group('Supabase refreshAll errors')
+      queryErrors.forEach(([label, error]) => {
+        console.error(label, error)
+      })
+      console.groupEnd()
+
+      const errorSignature = queryErrors.map(([label]) => label).join(',')
+
+      if (lastErrorSignatureRef.current !== errorSignature) {
+        lastErrorSignatureRef.current = errorSignature
+        pushToast(
+          'Sync problem',
+          `Failed: ${errorSignature}`,
+        )
+      }
+    } else {
+      lastErrorSignatureRef.current = ''
+    }
+
+    if (runId !== refreshRunRef.current) {
+      return
+    }
+
+    const nextProfiles = (profilesRes.data ?? []).map((row) => mapProfileRow(row))
+    const profileMap = Object.fromEntries(nextProfiles.map((profile) => [profile.id, profile]))
+
+    const nextPublicCollection = (publicCollectionRes.data ?? []).map(mapCollectionRow)
+    const nextOwnCollection = (ownCollectionRes.data ?? []).map(mapCollectionRow)
+    const nextFavoriteRows = favoritesRes.data ?? []
+    const nextRequests = (requestsRes.data ?? []).map(mapRequestRow)
+    const nextTickets = (ticketsRes.data ?? []).map((ticket) => ({
+      ...ticket,
+      createdAt: formatDateTime(ticket.created_at),
+    }))
+
+    const ownerCounts = nextPublicCollection.reduce((acc, item) => {
+      acc[item.fragranceId] = (acc[item.fragranceId] ?? 0) + 1
+      return acc
+    }, {})
+
+    const nextFragrances = (fragrancesRes.data ?? []).map((row) => ({
+      ...mapFragranceRow(row),
+      ownerCount: ownerCounts[row.id] ?? 0,
+    }))
+
+    const ownProfileRow = profilesRes.data?.find((profile) => profile.id === authUser?.id)
+
+    const fallbackOwnProfile = authUser
+      ? {
+          id: authUser.id,
+          name: authUser.user_metadata?.display_name || authUser.email?.split('@')[0] || 'Collector',
+          email: authUser.email ?? null,
+          city: authUser.user_metadata?.city || 'Unknown',
+          distance: Number(authUser.user_metadata?.distance_miles ?? 0),
+          verified: false,
+          rating: 0,
+          responseTime: '~1 day',
+          bio: authUser.user_metadata?.bio || '',
+          meetupSpot: authUser.user_metadata?.meetup_spot || 'TBD',
+          createdAt: null,
+        }
+      : null
+
+    const ownProfile = ownProfileRow
+      ? mapProfileRow(ownProfileRow, authUser?.email ?? null)
+      : fallbackOwnProfile
+
+    setProfiles(nextProfiles)
+    setFragrances(nextFragrances)
+    setPublicCollectionItems(nextPublicCollection)
+    setOwnCollectionItems(nextOwnCollection)
+    setFavoriteRows(nextFavoriteRows)
+    setRequests(nextRequests)
+    setSupportTickets(nextTickets)
+    setCurrentUser(ownProfile)
+    setLoading(false)
+
+    return {
+      profileMap,
+      ownProfile,
+      nextFragrances,
+    }
+  }, [ensureProfile, pushToast])
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-    }
-  }, [state])
+    let mounted = true
 
-  const pushToast = (title, body) => {
-    const id = randomId('toast')
-    setToasts((current) => [...current, { id, title, body }])
-  }
+    async function bootstrap() {
+      const {
+        data: { session: initialSession },
+      } = await supabase.auth.getSession()
 
-  const dismissToast = (id) => {
-    setToasts((current) => current.filter((toast) => toast.id !== id))
-  }
-
-  const currentUser = state.currentUser
-  const requests = state.requests
-  const supportTickets = state.supportTickets
-  const customFragrances = state.customFragrances ?? []
-
-  const allUsers = useMemo(() => {
-    if (!currentUser) {
-      return COMMUNITY_MEMBERS
-    }
-
-    return [
-      currentUser,
-      ...COMMUNITY_MEMBERS.filter((member) => member.id !== currentUser.id),
-    ]
-  }, [currentUser])
-
-  const ownerCounts = useMemo(() => {
-    const counts = {}
-
-    for (const user of allUsers) {
-      for (const item of user.collection ?? []) {
-        if (!item.shareEnabled) {
-          continue
-        }
-
-        counts[item.fragranceId] = (counts[item.fragranceId] ?? 0) + 1
+      if (!mounted) {
+        return
       }
+
+      setSession(initialSession)
+      await refreshAll(initialSession)
     }
 
-    return counts
-  }, [allUsers])
+    bootstrap()
 
-  const fragrances = useMemo(() => {
-    const merged = [...customFragrances, ...FRAGRANCES]
-    const seen = new Set()
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+      refreshAll(nextSession)
+    })
 
-    return merged
-      .filter((fragrance) => {
-        if (seen.has(fragrance.id)) {
-          return false
-        }
+    return () => {
+      mounted = false
+      subscription.unsubscribe()
+    }
+  }, [refreshAll])
 
-        seen.add(fragrance.id)
-        return true
-      })
-      .map((fragrance) => ({
-        ...fragrance,
-        ownerCount: ownerCounts[fragrance.id] ?? 0,
+  const fragranceMap = useMemo(
+    () => Object.fromEntries(fragrances.map((fragrance) => [fragrance.id, fragrance])),
+    [fragrances],
+  )
+
+  const profilesById = useMemo(
+    () => Object.fromEntries(profiles.map((profile) => [profile.id, profile])),
+    [profiles],
+  )
+
+  const favoriteIds = useMemo(
+    () => favoriteRows.map((row) => row.fragrance_id),
+    [favoriteRows],
+  )
+
+  const collectionIds = useMemo(
+    () => ownCollectionItems.map((item) => item.fragranceId),
+    [ownCollectionItems],
+  )
+
+  const collection = useMemo(
+    () => ownCollectionItems
+      .map((item) => ({
+        ...item,
+        fragrance: fragranceMap[item.fragranceId],
       }))
-  }, [customFragrances, ownerCounts])
+      .filter((item) => item.fragrance),
+    [ownCollectionItems, fragranceMap],
+  )
 
-  const fragranceMap = useMemo(() => {
-    return Object.fromEntries(fragrances.map((fragrance) => [fragrance.id, fragrance]))
-  }, [fragrances])
+  const incomingRequests = useMemo(
+    () => currentUser
+      ? requests.filter((request) => request.ownerId === currentUser.id)
+      : [],
+    [requests, currentUser],
+  )
 
-  const collectionIds = currentUser?.collection.map((item) => item.fragranceId) ?? []
-  const favoriteIds = currentUser?.favorites ?? []
+  const outgoingRequests = useMemo(
+    () => currentUser
+      ? requests.filter((request) => request.requesterId === currentUser.id)
+      : [],
+    [requests, currentUser],
+  )
 
-  const enrichCollectionItem = (item) => ({
-    ...item,
-    fragrance: fragranceMap[item.fragranceId],
-  })
+  const stats = useMemo(() => {
+    const visibleOwnerIds = new Set(publicCollectionItems.map((item) => item.user_id ?? item.userId).filter(Boolean))
+    const localOwners = profiles.filter(
+      (profile) => visibleOwnerIds.has(profile.id) && Number(profile.distance ?? 0) <= 10,
+    ).length
+
+    return {
+      totalFragrances: fragrances.length,
+      communityMembers: profiles.length,
+      activeSamples: requests.filter((request) => request.status === 'Pending').length,
+      localOwners,
+    }
+  }, [fragrances.length, profiles, publicCollectionItems, requests])
 
   const ensureSignedIn = () => {
     if (!currentUser) {
       setAuthModalOpen(true)
-      pushToast('Sign in required', 'Create an account or use the demo profile to continue.')
+      pushToast('Sign in required', 'Create an account or sign in to continue.')
       return false
     }
 
     return true
   }
 
-  const updateCurrentUser = (updater) => {
-    setState((current) => {
-      if (!current.currentUser) {
-        return current
-      }
-
-      const nextUser = typeof updater === 'function'
-        ? updater(current.currentUser)
-        : updater
-
-      return {
-        ...current,
-        currentUser: nextUser,
-      }
-    })
-  }
-
-  const signInDemo = () => {
-    setState((current) => ({
-      ...current,
-      currentUser: DEMO_USER,
-    }))
-    setAuthModalOpen(false)
-    pushToast('Welcome back', 'Signed in with the demo collector account.')
-  }
-
-  const signIn = ({ name, email, city }) => {
-    setState((current) => ({
-      ...current,
-      currentUser: {
-        ...DEMO_USER,
-        name: name || DEMO_USER.name,
-        email: email || DEMO_USER.email,
-        city: city || DEMO_USER.city,
-      },
-    }))
-    setAuthModalOpen(false)
-    pushToast('Signed in', 'Your local session is ready and your collection is restored.')
-  }
-
-  const createAccount = ({ name, email, city }) => {
-    const newUser = {
-      ...DEMO_USER,
-      id: 'you',
-      name,
+  const signIn = async ({ email, password }) => {
+    const { error } = await supabase.auth.signInWithPassword({
       email,
-      city,
-      bio: 'New collector building a smarter sampling routine.',
-      collection: [],
-      favorites: [],
+      password,
+    })
+
+    if (error) {
+      pushToast('Sign-in failed', error.message)
+      return
     }
 
-    setState((current) => ({
-      ...current,
-      currentUser: newUser,
-      requests: current.requests.filter(
-        (request) => request.ownerId !== 'you' && request.requesterId !== 'you',
-      ),
-    }))
     setAuthModalOpen(false)
-    pushToast('Account created', 'Start building your collection and send your first sample request.')
+    pushToast('Signed in', 'Welcome back.')
   }
 
-  const signOut = () => {
-    setState((current) => ({
-      ...current,
-      currentUser: null,
-    }))
-    pushToast('Signed out', 'You can still browse fragrances and community profiles.')
-  }
+  const signInDemo = async () => {
+    const email = import.meta.env.VITE_DEMO_EMAIL
+    const password = import.meta.env.VITE_DEMO_PASSWORD
 
-  const toggleFavorite = (fragranceId) => {
-    if (!ensureSignedIn()) {
+    if (!email || !password) {
+      pushToast('Demo unavailable', 'Set VITE_DEMO_EMAIL and VITE_DEMO_PASSWORD to enable demo login.')
       return
     }
 
-    updateCurrentUser((user) => {
-      const alreadySaved = user.favorites.includes(fragranceId)
-      const nextFavorites = alreadySaved
-        ? user.favorites.filter((id) => id !== fragranceId)
-        : [...user.favorites, fragranceId]
+    await signIn({ email, password })
+  }
 
-      pushToast(
-        alreadySaved ? 'Removed from saved scents' : 'Saved for later',
-        alreadySaved
-          ? 'The fragrance was removed from your shortlist.'
-          : 'You can find it anytime in your saved scents.',
-      )
-
-      return {
-        ...user,
-        favorites: nextFavorites,
-      }
+  const createAccount = async ({ name, email, password, city }) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          display_name: name,
+          city,
+          bio: 'New collector building a smarter sampling routine.',
+          meetup_spot: 'TBD',
+          distance_miles: 0,
+        },
+      },
     })
+
+    if (error) {
+      pushToast('Sign-up failed', error.message)
+      return
+    }
+
+    setAuthModalOpen(false)
+
+    if (data.session) {
+      pushToast('Account created', 'Your account is ready.')
+    } else {
+      pushToast('Check your email', 'Confirm your email, then sign in from any device.')
+    }
   }
 
-  const addToCollection = (fragranceId) => {
+  const signOut = async () => {
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      pushToast('Sign-out failed', error.message)
+      return
+    }
+
+    pushToast('Signed out', 'You can still browse as a guest.')
+  }
+
+  const updateProfile = async (updates) => {
     if (!ensureSignedIn()) {
       return
     }
 
-    updateCurrentUser((user) => {
-      const result = addCollectionEntryIfMissing(user, fragranceId)
+    const payload = {
+      display_name: updates.name ?? currentUser.name,
+      city: updates.city ?? currentUser.city,
+      bio: updates.bio ?? currentUser.bio,
+      meetup_spot: updates.meetupSpot ?? currentUser.meetupSpot,
+      response_time: updates.responseTime ?? currentUser.responseTime,
+      distance_miles: Number(updates.distance ?? currentUser.distance ?? 0),
+    }
 
-      if (!result.added) {
-        pushToast('Already in collection', 'That fragrance is already listed in your collection.')
-        return user
+    const { error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('id', currentUser.id)
+
+    if (error) {
+      pushToast('Profile update failed', error.message)
+      return
+    }
+
+    await refreshAll()
+    pushToast('Profile saved', 'Your preferences and profile details were updated.')
+  }
+
+  const toggleFavorite = async (fragranceId) => {
+    if (!ensureSignedIn()) {
+      return
+    }
+
+    const alreadySaved = favoriteIds.includes(fragranceId)
+
+    if (alreadySaved) {
+      const { error } = await supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', currentUser.id)
+        .eq('fragrance_id', fragranceId)
+
+      if (error) {
+        pushToast('Could not remove favorite', error.message)
+        return
       }
 
-      pushToast('Collection updated', 'The fragrance was added to your collection.')
-      return result.user
-    })
+      await refreshAll()
+      pushToast('Removed from saved scents', 'The fragrance was removed from your shortlist.')
+      return
+    }
+
+    const { error } = await supabase
+      .from('favorites')
+      .insert({
+        user_id: currentUser.id,
+        fragrance_id: fragranceId,
+      })
+
+    if (error) {
+      pushToast('Could not save fragrance', error.message)
+      return
+    }
+
+    await refreshAll()
+    pushToast('Saved for later', 'You can find it anytime in your saved scents.')
   }
 
-  const removeFromCollection = (fragranceId) => {
+  const addToCollection = async (fragranceId) => {
     if (!ensureSignedIn()) {
       return
     }
 
-    updateCurrentUser((user) => ({
-      ...user,
-      collection: user.collection.filter((item) => item.fragranceId !== fragranceId),
-    }))
+    const { error } = await supabase
+      .from('collection_items')
+      .upsert({
+        user_id: currentUser.id,
+        fragrance_id: fragranceId,
+        bottle_ml: 50,
+        condition: '95% full',
+        sample_format: '2 ml atomizer',
+        share_enabled: true,
+      }, {
+        onConflict: 'user_id,fragrance_id',
+      })
+
+    if (error) {
+      pushToast('Could not add to collection', error.message)
+      return
+    }
+
+    await refreshAll()
+    pushToast('Collection updated', 'The fragrance was added to your collection.')
+  }
+
+  const removeFromCollection = async (fragranceId) => {
+    if (!ensureSignedIn()) {
+      return
+    }
+
+    const { error } = await supabase
+      .from('collection_items')
+      .delete()
+      .eq('user_id', currentUser.id)
+      .eq('fragrance_id', fragranceId)
+
+    if (error) {
+      pushToast('Could not remove from collection', error.message)
+      return
+    }
+
+    await refreshAll()
     pushToast('Removed from collection', 'The fragrance has been removed from your shelf.')
   }
 
-  const toggleCollectionSharing = (fragranceId) => {
+  const toggleCollectionSharing = async (fragranceId) => {
     if (!ensureSignedIn()) {
       return
     }
 
-    updateCurrentUser((user) => ({
-      ...user,
-      collection: user.collection.map((item) => (
-        item.fragranceId === fragranceId
-          ? { ...item, shareEnabled: !item.shareEnabled }
-          : item
-      )),
-    }))
+    const currentItem = ownCollectionItems.find((item) => item.fragranceId === fragranceId)
+
+    if (!currentItem) {
+      return
+    }
+
+    const { error } = await supabase
+      .from('collection_items')
+      .update({
+        share_enabled: !currentItem.shareEnabled,
+      })
+      .eq('user_id', currentUser.id)
+      .eq('fragrance_id', fragranceId)
+
+    if (error) {
+      pushToast('Could not update sharing', error.message)
+      return
+    }
+
+    await refreshAll()
     pushToast('Sampling settings updated', 'Your collection visibility has been updated.')
   }
 
-  const createFragrance = (payload) => {
+  const createFragrance = async (payload) => {
     if (!ensureSignedIn()) {
       return { status: 'blocked' }
     }
@@ -366,109 +646,64 @@ export function ScentSwapProvider({ children }) {
     ))
 
     if (duplicate) {
-      let addedToCollection = false
-
       if (payload.addToCollection) {
-        updateCurrentUser((user) => {
-          const result = addCollectionEntryIfMissing(user, duplicate.id)
-          addedToCollection = result.added
-          return result.user
-        })
+        await addToCollection(duplicate.id)
       }
 
-      pushToast(
-        'Already in catalog',
-        addedToCollection
-          ? 'We found an existing match and added it to your collection.'
-          : 'We found an existing match for that fragrance.',
-      )
-
-      return {
-        status: 'duplicate',
-        fragrance: duplicate,
-      }
+      pushToast('Already in catalog', 'We found an existing match for that fragrance.')
+      return { status: 'duplicate', fragrance: duplicate }
     }
 
-    const takenIds = new Set(fragrances.map((fragrance) => fragrance.id))
     const takenSlugs = new Set(fragrances.map((fragrance) => fragrance.slug))
+    const slug = uniqueSlug(slugify(`${brand}-${name}`), takenSlugs)
 
-    const idBase = `custom-${slugify(`${brand}-${name}`)}`
-    const slugBase = slugify(`${brand}-${name}`)
-
-    const id = uniqueValue(idBase, takenIds)
-    const slug = uniqueValue(slugBase, takenSlugs)
-
-    const topNotes = parseList(payload.topNotes, ['bergamot'])
-    const middleNotes = parseList(payload.middleNotes, ['jasmine'])
-    const baseNotes = parseList(payload.baseNotes, ['musk'])
-
-    const accords = parseList(payload.accords, [
-      familyFallback(payload.family),
-      topNotes[0],
-      baseNotes[0],
-    ].filter(Boolean).slice(0, 4))
-
-    const seasons = parseList(payload.seasons, ['spring', 'fall'])
-    const idealFor = parseList(payload.idealFor, ['sampling', 'everyday'])
-
-    const fragrance = {
-      id,
+    const insertPayload = {
       slug,
       brand,
       name,
       concentration: String(payload.concentration || 'Eau de Parfum').trim(),
       family: String(payload.family || 'Woody Aromatic').trim(),
-      vibe: String(payload.vibe || `${topNotes[0]}, ${middleNotes[0]}, ${baseNotes[0]}`).trim(),
-      description: String(
-        payload.description
-        || `${name} by ${brand} blends ${topNotes[0]}, ${middleNotes[0]}, and ${baseNotes[0]} into a balanced profile built for testing before a full bottle purchase.`,
-      ).trim(),
-      topNotes,
-      middleNotes,
-      baseNotes,
-      accords,
-      seasons,
+      vibe: String(payload.vibe || '').trim(),
+      description: String(payload.description || '').trim(),
+      top_notes: parseList(payload.topNotes, ['bergamot']),
+      middle_notes: parseList(payload.middleNotes, ['jasmine']),
+      base_notes: parseList(payload.baseNotes, ['musk']),
+      accords: parseList(payload.accords, ['woody', 'musky']),
+      seasons: parseList(payload.seasons, ['spring', 'fall']),
       longevity: String(payload.longevity || '6–8 hours').trim(),
       sillage: String(payload.sillage || 'moderate').trim().toLowerCase(),
-      idealFor,
-      communityScore: Number(payload.communityScore ?? 76),
-      blindBuyRisk: Number(payload.blindBuyRisk ?? 32),
-      ownerCount: 0,
+      ideal_for: parseList(payload.idealFor, ['sampling', 'everyday']),
+      community_score: Number(payload.communityScore ?? 76),
+      blind_buy_risk: Number(payload.blindBuyRisk ?? 32),
       popularity: Number(payload.popularity ?? 12),
-      featuredReason: 'Community-added fragrance created because it was missing from the catalog.',
-      createdBy: currentUser.id,
-      createdAt: new Date().toISOString(),
+      featured_reason: 'Community-added fragrance created because it was missing from the catalog.',
+      created_by: currentUser.id,
     }
 
-    setState((current) => ({
-      ...current,
-      customFragrances: [fragrance, ...(current.customFragrances ?? [])],
-    }))
+    const { data, error } = await supabase
+      .from('fragrances')
+      .insert(insertPayload)
+      .select('*')
+      .single()
 
-    let addedToCollection = false
+    if (error) {
+      pushToast('Could not create fragrance', error.message)
+      return { status: 'error' }
+    }
+
+    await refreshAll()
+
+    const fragrance = mapFragranceRow(data)
 
     if (payload.addToCollection) {
-      updateCurrentUser((user) => {
-        const result = addCollectionEntryIfMissing(user, fragrance.id)
-        addedToCollection = result.added
-        return result.user
-      })
+      await addToCollection(fragrance.id)
     }
 
-    pushToast(
-      'Fragrance created',
-      addedToCollection
-        ? 'Added to the catalog and your collection.'
-        : 'Added to the catalog.',
-    )
-
-    return {
-      status: 'created',
-      fragrance,
-    }
+    pushToast('Fragrance created', 'Added to the catalog.')
+    return { status: 'created', fragrance }
   }
 
-  const sendSampleRequest = ({ fragranceId, ownerId, message }) => {
+  const sendSampleRequest = async ({ fragranceId, ownerId, message }) => {
     if (!ensureSignedIn()) {
       return
     }
@@ -478,46 +713,48 @@ export function ScentSwapProvider({ children }) {
       return
     }
 
-    const duplicate = requests.some(
-      (request) => (
-        request.fragranceId === fragranceId
-        && request.ownerId === ownerId
-        && request.requesterId === currentUser.id
-        && request.status === 'Pending'
-      ),
-    )
+    const duplicate = requests.some((request) => (
+      request.fragranceId === fragranceId
+      && request.ownerId === ownerId
+      && request.requesterId === currentUser.id
+      && request.status === 'Pending'
+    ))
 
     if (duplicate) {
       pushToast('Request already pending', 'You already have an open request for this fragrance.')
       return
     }
 
-    const nextRequest = {
-      id: randomId('req'),
-      fragranceId,
-      ownerId,
-      requesterId: currentUser.id,
-      status: 'Pending',
-      createdAt: 'Just now',
-      message,
+    const { error } = await supabase
+      .from('sample_requests')
+      .insert({
+        fragrance_id: fragranceId,
+        owner_user_id: ownerId,
+        requester_user_id: currentUser.id,
+        message,
+      })
+
+    if (error) {
+      pushToast('Could not send request', error.message)
+      return
     }
 
-    setState((current) => ({
-      ...current,
-      requests: [nextRequest, ...current.requests],
-    }))
+    await refreshAll()
     pushToast('Request sent', 'Your sample request is now waiting for a response.')
   }
 
-  const updateRequestStatus = (requestId, status) => {
-    setState((current) => ({
-      ...current,
-      requests: current.requests.map((request) => (
-        request.id === requestId
-          ? { ...request, status }
-          : request
-      )),
-    }))
+  const updateRequestStatus = async (requestId, status) => {
+    const { error } = await supabase
+      .from('sample_requests')
+      .update({ status })
+      .eq('id', requestId)
+
+    if (error) {
+      pushToast('Could not update request', error.message)
+      return
+    }
+
+    await refreshAll()
 
     const copy = {
       Approved: 'You approved a request and the requester can now coordinate pickup.',
@@ -528,68 +765,66 @@ export function ScentSwapProvider({ children }) {
     pushToast(`Request ${status.toLowerCase()}`, copy[status] ?? 'The request was updated.')
   }
 
-  const submitSupportTicket = ({ type, subject, message }) => {
-    const ticket = {
-      id: randomId('ticket'),
-      type,
-      subject,
-      message,
-      createdAt: new Date().toLocaleString(),
+  const submitSupportTicket = async ({ type, subject, message }) => {
+    if (!ensureSignedIn()) {
+      return
     }
 
-    setState((current) => ({
-      ...current,
-      supportTickets: [ticket, ...current.supportTickets],
-    }))
-    pushToast('Support request sent', 'We saved your ticket locally so you can track it in this demo.')
+    const { error } = await supabase
+      .from('support_tickets')
+      .insert({
+        user_id: currentUser.id,
+        type,
+        subject,
+        message,
+      })
+
+    if (error) {
+      pushToast('Could not submit support ticket', error.message)
+      return
+    }
+
+    await refreshAll()
+    pushToast('Support request sent', 'Your support ticket was saved.')
   }
 
   const resetDemo = () => {
-    const fresh = buildInitialState()
-    setState(fresh)
-    pushToast('Demo reset', 'The workspace has been restored to the starter showcase state.')
+    pushToast('No reset in production mode', 'This app now uses the database instead of local demo state.')
   }
 
-  const getOwnersForFragrance = (fragranceId) => {
-    return allUsers
-      .filter((user) => user.collection.some(
-        (item) => item.fragranceId === fragranceId && item.shareEnabled,
-      ))
-      .map((user) => {
-        const ownedItem = user.collection.find((item) => item.fragranceId === fragranceId)
+  const getOwnersForFragrance = useCallback((fragranceId) => {
+    return publicCollectionItems
+      .filter((item) => item.fragranceId === fragranceId && item.shareEnabled)
+      .map((item) => {
+        const owner = profilesById[item.user_id] || profilesById[item.userId]
+
+        if (!owner) {
+          return null
+        }
+
         return {
-          ...user,
-          ownedItem,
+          ...owner,
+          ownedItem: item,
         }
       })
+      .filter(Boolean)
       .sort((a, b) => a.distance - b.distance)
-  }
+  }, [publicCollectionItems, profilesById])
 
-  const getUserById = (userId) => allUsers.find((user) => user.id === userId)
-  const getFragranceById = (fragranceId) => fragranceMap[fragranceId]
+  const getUserById = useCallback(
+    (userId) => profilesById[userId] ?? null,
+    [profilesById],
+  )
 
-  const incomingRequests = currentUser
-    ? requests.filter((request) => request.ownerId === currentUser.id)
-    : []
-
-  const outgoingRequests = currentUser
-    ? requests.filter((request) => request.requesterId === currentUser.id)
-    : []
-
-  const collection = currentUser?.collection
-    .map(enrichCollectionItem)
-    .filter((item) => item.fragrance) ?? []
-
-  const stats = {
-    totalFragrances: fragrances.length,
-    communityMembers: COMMUNITY_MEMBERS.length + (currentUser ? 1 : 0),
-    activeSamples: requests.filter((request) => request.status === 'Pending').length,
-    localOwners: allUsers.filter((user) => user.distance <= 10).length,
-  }
+  const getFragranceById = useCallback(
+    (fragranceId) => fragranceMap[fragranceId] ?? null,
+    [fragranceMap],
+  )
 
   const value = {
+    session,
+    loading,
     fragrances,
-    customFragrances,
     currentUser,
     collection,
     collectionIds,
@@ -605,6 +840,7 @@ export function ScentSwapProvider({ children }) {
     signInDemo,
     createAccount,
     signOut,
+    updateProfile,
     toggleFavorite,
     addToCollection,
     removeFromCollection,
@@ -626,14 +862,6 @@ export function ScentSwapProvider({ children }) {
       {children}
     </ScentSwapContext.Provider>
   )
-}
-
-function familyFallback(family) {
-  if (!family) {
-    return 'woody'
-  }
-
-  return String(family).trim().split(' ')[0].toLowerCase()
 }
 
 export function useScentSwap() {

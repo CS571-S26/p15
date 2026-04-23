@@ -6,12 +6,6 @@ import {
   Modal,
   Row,
 } from 'react-bootstrap'
-import {
-  CONCENTRATION_OPTIONS,
-  FAMILY_OPTIONS,
-  SEASON_OPTIONS,
-  SILLAGE_OPTIONS,
-} from '../../data/mockData'
 import { useScentSwap } from '../../context/ScentSwapContext'
 
 const baseForm = {
@@ -40,6 +34,7 @@ export default function CreateFragranceModal({
 }) {
   const { createFragrance } = useScentSwap()
   const [form, setForm] = useState(baseForm)
+  const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
     if (!show) {
@@ -60,10 +55,11 @@ export default function CreateFragranceModal({
     }))
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
-
-    const result = createFragrance(form)
+    setSubmitting(true)
+    const result = await createFragrance(form)
+    setSubmitting(false)
 
     if (!result?.fragrance) {
       return
@@ -81,8 +77,8 @@ export default function CreateFragranceModal({
 
       <Modal.Body>
         <p className="text-secondary mb-4">
-          Missing something from the catalog? Add it once, keep the detail schema intact,
-          and route it straight into collection and community flows.
+          This writes straight to the shared `fragrances` table, so the entry persists across devices
+          and becomes available to other users immediately.
         </p>
 
         <Form onSubmit={handleSubmit}>
@@ -116,34 +112,22 @@ export default function CreateFragranceModal({
             <Col md={6}>
               <Form.Group controlId="fragrance-concentration">
                 <Form.Label>Concentration</Form.Label>
-                <Form.Select
+                <Form.Control
                   name="concentration"
                   value={form.concentration}
                   onChange={updateField}
-                >
-                  {CONCENTRATION_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </Form.Select>
+                />
               </Form.Group>
             </Col>
 
             <Col md={6}>
               <Form.Group controlId="fragrance-family">
                 <Form.Label>Family</Form.Label>
-                <Form.Select
+                <Form.Control
                   name="family"
                   value={form.family}
                   onChange={updateField}
-                >
-                  {FAMILY_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </Form.Select>
+                />
               </Form.Group>
             </Col>
 
@@ -228,7 +212,7 @@ export default function CreateFragranceModal({
                   name="seasons"
                   value={form.seasons}
                   onChange={updateField}
-                  placeholder={SEASON_OPTIONS.join(', ')}
+                  placeholder="spring, fall"
                 />
               </Form.Group>
             </Col>
@@ -240,7 +224,6 @@ export default function CreateFragranceModal({
                   name="longevity"
                   value={form.longevity}
                   onChange={updateField}
-                  placeholder="6–8 hours"
                 />
               </Form.Group>
             </Col>
@@ -248,17 +231,11 @@ export default function CreateFragranceModal({
             <Col md={6}>
               <Form.Group controlId="fragrance-sillage">
                 <Form.Label>Sillage</Form.Label>
-                <Form.Select
+                <Form.Control
                   name="sillage"
                   value={form.sillage}
                   onChange={updateField}
-                >
-                  {SILLAGE_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </Form.Select>
+                />
               </Form.Group>
             </Col>
 
@@ -290,7 +267,7 @@ export default function CreateFragranceModal({
             <Button variant="outline-secondary" onClick={onHide}>
               Cancel
             </Button>
-            <Button type="submit" variant="dark">
+            <Button type="submit" variant="dark" disabled={submitting}>
               Create fragrance
             </Button>
           </div>
