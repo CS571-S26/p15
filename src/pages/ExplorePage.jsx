@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Button,
   Card,
@@ -46,15 +46,7 @@ export default function ExplorePage() {
   const [filters, setFilters] = useState(defaultFilters)
   const [page, setPage] = useState(1)
   const [showCreateModal, setShowCreateModal] = useState(false)
-
-  useEffect(() => {
-    const query = searchParams.get('q') ?? ''
-    setFilters((current) => (
-      current.search === query
-        ? current
-        : { ...current, search: query }
-    ))
-  }, [searchParams])
+  const activeSearch = searchParams.has('q') ? searchParams.get('q') ?? '' : filters.search
 
   const families = useMemo(
     () => [...new Set(fragrances.map((fragrance) => fragrance.family))].sort(),
@@ -69,7 +61,7 @@ export default function ExplorePage() {
   const seasons = ['spring', 'summer', 'fall', 'winter']
 
   const filtered = useMemo(() => {
-    const lowerSearch = filters.search.trim().toLowerCase()
+    const lowerSearch = activeSearch.trim().toLowerCase()
 
     const result = fragrances.filter((fragrance) => {
       const matchesSearch = !lowerSearch || getSearchableText(fragrance).includes(lowerSearch)
@@ -107,18 +99,7 @@ export default function ExplorePage() {
           return right.popularity - left.popularity
       }
     })
-  }, [filters, fragrances, getOwnersForFragrance])
-
-  useEffect(() => {
-    setPage(1)
-  }, [
-    filters.search,
-    filters.family,
-    filters.season,
-    filters.concentration,
-    filters.availability,
-    filters.sort,
-  ])
+  }, [activeSearch, filters, fragrances, getOwnersForFragrance])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
@@ -132,6 +113,7 @@ export default function ExplorePage() {
       ...current,
       [name]: value,
     }))
+    setPage(1)
 
     if (name === 'search') {
       const next = new URLSearchParams(searchParams)
@@ -148,6 +130,7 @@ export default function ExplorePage() {
 
   const clearFilters = () => {
     setFilters(defaultFilters)
+    setPage(1)
     setSearchParams({})
   }
 
@@ -182,8 +165,7 @@ export default function ExplorePage() {
         <p className="eyebrow mb-2">Fragrance catalog</p>
         <h1 className="mb-3">Search by notes, family, season, or nearby availability</h1>
         <p className="text-secondary mb-0">
-          This catalog is now backed by the database, so new fragrances, user collections, and
-          community ownership are real records rather than demo-only state.
+          Find scents by profile, compare risk and fit, and see which bottles are available nearby.
         </p>
       </div>
 
@@ -191,7 +173,7 @@ export default function ExplorePage() {
         <Col lg={3}>
           <Card className="glass-surface sticky-lg-top filters-card">
             <Card.Body>
-              <div className="d-flex justify-content-between align-items-center mb-3">
+              <div className="section-heading-row mb-3">
                 <h2 className="h5 mb-0">Filters</h2>
                 <Button variant="link" className="p-0 text-decoration-none" onClick={clearFilters}>
                   Reset
@@ -204,7 +186,7 @@ export default function ExplorePage() {
                   <Form.Control
                     name="search"
                     placeholder="saffron, rose, smoky..."
-                    value={filters.search}
+                    value={activeSearch}
                     onChange={updateFilter}
                   />
                 </Form.Group>
@@ -335,13 +317,13 @@ export default function ExplorePage() {
                   Reset the filters or create the missing fragrance directly from here.
                 </p>
 
-                <div className="d-flex flex-wrap gap-2">
+                <div className="action-row">
                   <Button variant="outline-secondary" onClick={clearFilters}>
                     Clear filters
                   </Button>
                   <Button variant="dark" onClick={() => setShowCreateModal(true)}>
-                    {filters.search.trim()
-                      ? `Create “${filters.search.trim()}”`
+                    {activeSearch.trim()
+                      ? `Create "${activeSearch.trim()}"`
                       : 'Create new fragrance'}
                   </Button>
                 </div>
@@ -354,7 +336,7 @@ export default function ExplorePage() {
       <CreateFragranceModal
         show={showCreateModal}
         onHide={() => setShowCreateModal(false)}
-        initialQuery={filters.search}
+        initialQuery={activeSearch}
         onCreated={handleCreated}
       />
     </Container>

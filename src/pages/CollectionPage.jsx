@@ -104,7 +104,7 @@ export default function CollectionPage() {
       </section>
 
       <section className="mb-5">
-        <div className="section-header d-flex justify-content-between align-items-end gap-3 mb-4">
+        <div className="section-header section-heading-row mb-4">
           <div>
             <p className="eyebrow mb-2">My bottles</p>
             <h2 className="mb-0">Collection management</h2>
@@ -134,7 +134,7 @@ export default function CollectionPage() {
                     onChange={() => toggleCollectionSharing(item.fragrance.id)}
                   />
 
-                  <div className="d-flex gap-2 flex-wrap">
+                  <div className="action-row">
                     <Button as={Link} to={`/fragrances/${item.fragrance.slug}`} variant="dark">
                       View profile
                     </Button>
@@ -197,7 +197,7 @@ export default function CollectionPage() {
                     status={request.status}
                   >
                     {request.status === 'Pending' ? (
-                      <div className="d-flex gap-2 flex-wrap">
+                      <div className="action-row">
                         <Button variant="dark" onClick={() => updateRequestStatus(request.id, 'Approved')}>
                           Approve
                         </Button>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import {
   Button,
   Col,
@@ -36,16 +36,12 @@ export default function CreateFragranceModal({
   const [form, setForm] = useState(baseForm)
   const [submitting, setSubmitting] = useState(false)
 
-  useEffect(() => {
-    if (!show) {
-      return
-    }
-
+  const resetForm = () => {
     setForm({
       ...baseForm,
       name: initialQuery?.trim() || '',
     })
-  }, [show, initialQuery])
+  }
 
   const updateField = (event) => {
     const { name, value, type, checked } = event.target
@@ -70,15 +66,21 @@ export default function CreateFragranceModal({
   }
 
   return (
-    <Modal show={show} onHide={onHide} centered size="lg" contentClassName="glass-surface">
+    <Modal
+      show={show}
+      onHide={onHide}
+      onEntered={resetForm}
+      centered
+      size="lg"
+      contentClassName="glass-surface"
+    >
       <Modal.Header closeButton>
         <Modal.Title>Create new fragrance</Modal.Title>
       </Modal.Header>
 
       <Modal.Body>
         <p className="text-secondary mb-4">
-          This writes straight to the shared `fragrances` table, so the entry persists across devices
-          and becomes available to other users immediately.
+          Add a fragrance with enough detail for others to understand how it smells and when to sample it.
         </p>
 
         <Form onSubmit={handleSubmit}>
@@ -263,8 +265,8 @@ export default function CreateFragranceModal({
             </Col>
           </Row>
 
-          <div className="d-flex justify-content-end gap-2 mt-4">
-            <Button variant="outline-secondary" onClick={onHide}>
+          <div className="action-row end mt-4">
+            <Button type="button" variant="outline-secondary" onClick={onHide}>
               Cancel
             </Button>
             <Button type="submit" variant="dark" disabled={submitting}>

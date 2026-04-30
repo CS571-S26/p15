@@ -22,7 +22,7 @@ export default function NotePyramid({ fragrance }) {
         <div className="d-flex justify-content-between align-items-center mb-4">
           <div>
             <p className="eyebrow mb-1">Scent pyramid</p>
-            <h3 className="h4 mb-0">How the scent unfolds</h3>
+            <h2 className="h4 mb-0">How the scent unfolds</h2>
           </div>
           <span className="fit-pill">{fragrance.sillage}</span>
         </div>

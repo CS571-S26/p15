@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Button, Form, Modal } from 'react-bootstrap'
 import { useScentSwap } from '../../context/ScentSwapContext'
 
@@ -11,11 +11,11 @@ export default function RequestSampleModal({ show, onHide, fragrance, owner }) {
   const { sendSampleRequest } = useScentSwap()
   const [message, setMessage] = useState('')
 
-  useEffect(() => {
-    if (show && fragrance && owner) {
+  const resetMessage = () => {
+    if (fragrance && owner) {
       setMessage(defaultMessage(fragrance.name, owner.name.split(' ')[0]))
     }
-  }, [show, fragrance, owner])
+  }
 
   const handleSubmit = (event) => {
     event.preventDefault()
@@ -32,7 +32,13 @@ export default function RequestSampleModal({ show, onHide, fragrance, owner }) {
   }
 
   return (
-    <Modal show={show} onHide={onHide} centered contentClassName="glass-surface">
+    <Modal
+      show={show}
+      onHide={onHide}
+      onEntered={resetMessage}
+      centered
+      contentClassName="glass-surface"
+    >
       <Modal.Header closeButton>
         <Modal.Title>Request a sample</Modal.Title>
       </Modal.Header>
@@ -64,8 +70,8 @@ export default function RequestSampleModal({ show, onHide, fragrance, owner }) {
                   Be clear about timing, respectful with bottle handling, and specific about why you want to test it.
                 </Form.Text>
               </Form.Group>
-              <div className="d-flex gap-2 justify-content-end mt-4">
-                <Button variant="outline-secondary" onClick={onHide}>
+              <div className="action-row end mt-4">
+                <Button type="button" variant="outline-secondary" onClick={onHide}>
                   Cancel
                 </Button>
                 <Button type="submit" variant="dark">

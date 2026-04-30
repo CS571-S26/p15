@@ -51,9 +51,9 @@ export default function AboutPage() {
           <Col lg={7}>
             <Card className="glass-surface h-100">
               <Card.Body>
-                <h2 className="h4 mb-3">What this prototype now includes</h2>
+                <h2 className="h4 mb-3">What ScentSwap includes</h2>
                 <ul className="text-secondary mb-0 ps-3">
-                  <li>Authentication-inspired onboarding with demo account access</li>
+                  <li>Account access for saving preferences and requests</li>
                   <li>Catalog pages with searchable notes, accords, and profile details</li>
                   <li>Personal collection management with sampling visibility controls</li>
                   <li>User-to-user request workflows from fragrance pages and community shelves</li>
@@ -136,7 +136,7 @@ export default function AboutPage() {
                       placeholder="Tell us what happened, what you expected, or what would make the experience better."
                     />
                   </Form.Group>
-                  <div className="d-flex gap-2 flex-wrap">
+                  <div className="action-row">
                     <Button type="submit" variant="dark">Submit ticket</Button>
                     <Button type="button" variant="outline-secondary" onClick={resetDemo}>
                       Reset demo data
@@ -152,7 +152,7 @@ export default function AboutPage() {
       <section>
         <div className="section-header mb-4">
           <p className="eyebrow mb-2">Recent local tickets</p>
-          <h2 className="mb-0">Saved support history in this demo</h2>
+          <h2 className="mb-0">Saved support history</h2>
         </div>
         <Row className="g-3">
           {supportTickets.length > 0 ? supportTickets.map((ticket) => (

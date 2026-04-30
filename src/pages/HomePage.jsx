@@ -24,7 +24,7 @@ export default function HomePage() {
               ScentSwap turns fragrance shopping into a smarter local experience. Explore detailed note pyramids,
               save scents to your shortlist, and request a sample from nearby collectors who already own the bottle.
             </p>
-            <div className="d-flex gap-3 flex-wrap mb-4">
+            <div className="action-row mb-4">
               <Button as={Link} to="/explore" variant="dark" size="lg">
                 Explore catalog
               </Button>
@@ -45,8 +45,7 @@ export default function HomePage() {
                 <p className="eyebrow">Product vision</p>
                 <h2 className="h3">A social layer on top of fragrance discovery</h2>
                 <p className="text-secondary mb-4">
-                  Your uploaded starter concept becomes a living interface: catalog, collection, community requests,
-                  and a trust-focused flow for trying before buying.
+                  Compare scent profiles, manage your collection, and connect with nearby collectors before buying.
                 </p>
                 <div className="hero-stat-grid">
                   <div>
@@ -103,7 +102,7 @@ export default function HomePage() {
       </section>
 
       <section className="mb-5">
-        <div className="section-header d-flex justify-content-between align-items-end gap-3 mb-4">
+        <div className="section-header section-heading-row mb-4">
           <div>
             <p className="eyebrow mb-2">Featured catalog</p>
             <h2 className="mb-0">Popular scents people want to test first</h2>
@@ -134,7 +133,7 @@ export default function HomePage() {
                 </p>
               </Col>
               <Col lg={4} className="text-lg-end">
-                <div className="d-flex flex-column gap-2 align-items-lg-end">
+                <div className="action-row end">
                   <Button as={Link} to="/collection" variant="dark">
                     Open my collection
                   </Button>

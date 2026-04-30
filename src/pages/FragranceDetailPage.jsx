@@ -57,7 +57,7 @@ export default function FragranceDetailPage() {
         <p className="text-secondary mb-4">
           That scent is not in the catalog yet. You can go back to Explore or create it now.
         </p>
-        <div className="d-flex justify-content-center gap-2 flex-wrap">
+        <div className="action-row justify-content-center">
           <Button as={Link} to="/explore" variant="outline-secondary">
             Return to explore
           </Button>
@@ -145,7 +145,7 @@ export default function FragranceDetailPage() {
                   ))}
                 </Stack>
 
-                <div className="d-flex flex-wrap gap-2">
+                <div className="action-row">
                   <Button variant="dark" onClick={() => addToCollection(fragrance.id)}>
                     {owned ? 'Already in collection' : 'Add to my collection'}
                   </Button>
@@ -245,7 +245,7 @@ export default function FragranceDetailPage() {
             <Accordion.Header>How ScentSwap helps reduce blind buys</Accordion.Header>
             <Accordion.Body>
               Sampling works better when note structure, wearer context, and community access exist in one place.
-              This page combines all three so the user can judge both the scent profile and the practical ability to try it locally.
+              Use the scent profile and nearby owner list to decide whether a fragrance is worth trying locally.
             </Accordion.Body>
           </Accordion.Item>
           <Accordion.Item eventKey="1">
@@ -256,10 +256,10 @@ export default function FragranceDetailPage() {
             </Accordion.Body>
           </Accordion.Item>
           <Accordion.Item eventKey="2">
-            <Accordion.Header>Ways to extend this project further</Accordion.Header>
+            <Accordion.Header>More ways ScentSwap can help</Accordion.Header>
             <Accordion.Body>
-              A production version could add geolocation, image uploads, in-app messaging, verified swaps, user reviews,
-              and shipping support for decants.
+              Future tools could include geolocation, image uploads, in-app messaging, verified swaps, user reviews,
+              and decant shipping support.
             </Accordion.Body>
           </Accordion.Item>
         </Accordion>

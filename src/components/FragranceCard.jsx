@@ -73,7 +73,7 @@ export default function FragranceCard({ fragrance, compact = false }) {
           </div>
         </div>
 
-        <div className="d-flex gap-2 flex-wrap mt-auto">
+        <div className="action-row mt-auto">
           <Button as={Link} to={`/fragrances/${fragrance.slug}`} variant="dark">
             View details
           </Button>

@@ -57,8 +57,7 @@ export default function CommunityPage() {
           <p className="eyebrow mb-2">Community sampling</p>
           <h1 className="mb-3">Browse nearby collectors and request from their shelves directly</h1>
           <p className="text-secondary mb-0">
-            This page turns the idea into a real user flow: view other members, inspect what they own,
-            and request a sample from a specific bottle without leaving the community page.
+            View member collections, compare sampling preferences, and request from a specific bottle.
           </p>
         </div>
 
@@ -106,7 +105,7 @@ export default function CommunityPage() {
             <Col xl={6} key={member.id}>
               <Card className="glass-surface h-100">
                 <Card.Body>
-                  <div className="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+                  <div className="section-heading-row align-items-start mb-3">
                     <div>
                       <div className="d-flex align-items-center gap-2 flex-wrap mb-1">
                         <Card.Title className="mb-0">{member.name}</Card.Title>
@@ -137,7 +136,7 @@ export default function CommunityPage() {
                             </p>
                             <small className="text-secondary">Bottle {item.bottleMl} ml</small>
                           </div>
-                          <div className="d-flex gap-2 flex-wrap justify-content-end">
+                          <div className="action-row end">
                             <Button as={Link} to={`/fragrances/${fragrance.slug}`} size="sm" variant="outline-dark">
                               View notes
                             </Button>
